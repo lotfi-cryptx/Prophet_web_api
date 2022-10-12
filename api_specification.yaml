@@ -1,0 +1,226 @@
+openapi: 3.0.0
+
+info:
+  version: 1.0.0
+  title: Facebook Prophet API
+  description: >-
+                An API to create and train Facebook's Prophet models to make forcasts on time series data.
+                
+                The API provides user based authentication and helps manage multiple models.
+  contact:
+    name: Lotfi LEHAMEL
+    email: lotfi.lehamel@outlook.com
+
+servers:
+  - url: 'localhost:5000/api/v1'
+
+paths:
+  /user:
+    get:
+      tags:
+        - Auth
+      summary: 'Generate Access Token'
+      description: >-
+                    Generate new JSON Web Token. The Generated token is used as an authentification mechanism 
+                    and should be added to the query parameters of any other API requests.
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+            example: 'test_user'
+        - name: password
+          in: query
+          required: true
+          schema:
+            type: string
+            format: password
+            example: 'test_pass'
+      responses:
+        '200':
+          description: 'Successfully generated new access token.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: 'New access token'
+                    example: 'ValidAccessToken'
+        '401':
+          description: 'Invalid username or password.'
+        '400':
+          description: 'Invalid request format.'
+        
+    post:
+      tags:
+        - Auth
+      summary: 'Create New User'
+      description: >-
+                    Create new user. Note that after creating a new user, 
+                    a new token should be generated to be able to use API functionalities that require authentification.
+      parameters: 
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+            example: 'new_user'
+        - name: password
+          in: query
+          required: true
+          schema:
+            type: string
+            format: password
+            example: 'new_pass'
+      responses:
+        '201':
+          description: 'User created successfully.'
+        '409':
+          description: 'User already exists.'
+        '400':
+          description: 'Invalid request format'
+          
+  /models:
+    get:
+      tags:
+        - Model
+      summary: 'Get Models List'
+      description: >-
+                    Returns a list of models that belongs to specified user.
+
+                    On success, The models list is returned as a JSON list document.
+      parameters:
+        - name: token
+          in: query
+          description: 'API access token.'
+          required: true
+          schema:
+            type: string
+            example: 'ValidAccessToken'
+      responses:
+        '200':
+          description: 'Successfull pull of models list.'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Model-info'
+        '401':
+          description: 'Unauthorized access. Invalid access token.'
+        '404':
+          description: 'User not found.'
+
+  /model:
+    post:
+      tags:
+        - Model
+      summary: 'Create New Model'
+      description: >-
+                    Create new model and train it using the specified CSV data file.
+
+                    A successfull response  means the model has been trained and is added to the models list.
+
+                    On success, the model ID is returned inside a JSON document along with the model name and description.
+
+                    The returned model ID can then be used to make forcasts.
+      parameters:
+        - name: token
+          in: query
+          description: 'API access token'
+          required: true
+          schema:
+            type: string
+            example: 'ValidAccessToken'
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                model_name:
+                  type: string
+                  description: 'New model name'
+                  example: 'New test model'
+                model_description:
+                  type: string
+                  description: 'New model description'
+                  example: 'This is a new test model.'
+                model_data:
+                  type: string
+                  description: 'CSV data file to train model with'
+                  format: binary
+      responses:
+        '200':
+          description: 'Model added and trained successfully.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model-info"
+        '401':
+          description: 'Unauthorized access. Invalid access token.'
+        '400':
+          description: 'Invalid request format.'
+        '404':
+          description: 'User not found.'
+
+    get:
+      tags:
+        - Model
+      summary: 'Forecast'
+      description: >-
+                    Make a new forecast using the specified model ID and for the specified forecast period.
+      parameters:
+        - name: token
+          in: query
+          description: 'API access token'
+          required: true
+          schema:
+            type: string
+            example: 'ValidAccessToken'
+        - name: id
+          in: query
+          description: 'Model ID to use for the forecast.'
+          required: true
+          schema:
+            type: integer
+            example: 8
+        - name: forecast_period
+          in: query
+          description: 'Period of the forcast.'
+          required: true
+          schema:
+            type: integer
+            example: 10
+      responses:
+        '200':
+          description: 'Successfully made a forcast using the specified model.'
+          content:
+            application/octet-stream:
+              schema:
+                description: 'CSV data of the forecast.'
+                type: string
+                format: binary
+
+
+components:
+  schemas:
+    Model-info:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 3
+        name:
+          type: string
+          example: 'example model'
+        description:
+          type: string
+          example: 'This is an example model.'
